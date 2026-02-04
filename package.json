@@ -1,6 +1,6 @@
 {
   "name": "copy-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "copy app",
   "main": "main.js",
   "type": "module",
