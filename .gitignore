@@ -1,3 +1,11 @@
 node_modules
 dist
 .vite
+tools/uia-helper/bin
+tools/uia-helper/obj
+tools/uia-helper/.vs
+tools/uia-helper/.idea
+*.log
+*.tmp
+.DS_Store
+Thumbs.db

@@ -56,28 +56,16 @@ textarea {
 
 .copy__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-
-.copy__title h1 {
-  margin: 0;
-  font-size: 32px;
-  letter-spacing: 0.4px;
-}
-
-.copy__title p {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 14px;
+  gap: 16px;
 }
 
 .copy__header-actions {
   display: flex;
   align-items: center;
   gap: 12px;
+  width: 100%;
 }
 
 .copy__search {
@@ -87,7 +75,8 @@ textarea {
   border-radius: 999px;
   border: 1px solid var(--border);
   padding: 8px 14px;
-  min-width: 260px;
+  flex: 1;
+  min-width: 0;
   box-shadow: 0 10px 24px rgba(2, 6, 23, 0.35);
 }
 
@@ -96,7 +85,7 @@ textarea {
   outline: none;
   background: transparent;
   font-size: 14px;
-  width: 240px;
+  width: 100%;
   color: var(--text);
 }
 
@@ -151,104 +140,106 @@ textarea {
   top: 0;
   left: 0;
   right: 0;
-  display: grid;
-  gap: 16px;
-}
-
-.copy-item {
-  background: var(--panel);
-  border-radius: 18px;
-  padding: 16px 20px;
-  border: 1px solid var(--border);
-  box-shadow: 0 18px 30px var(--shadow);
-  display: grid;
-  gap: 12px;
-  height: 120px;
-  overflow: hidden;
-}
-
-.copy-item__header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 0;
 }
 
-.copy-item__title {
+.copy-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 0;
+  padding: 10px 14px;
+  height: 56px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: rgba(15, 23, 42, 0.35);
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.copy-item__label {
-  font-weight: 600;
-  color: var(--text);
+.copy-row:hover {
+  background: rgba(15, 23, 42, 0.65);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.copy-row__label {
+  font-size: 12px;
+  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 240px;
+  max-width: 160px;
+  flex: 0 0 160px;
 }
 
-.copy-item__text-row {
-  display: flex;
-  align-items: center;
-}
-
-.copy-item__text {
-  font-size: 15px;
-  color: #cbd5f5;
-  line-height: 1.5;
+.copy-row__content {
+  font-size: 14px;
+  color: #e2e8f0;
+  line-height: 1.4;
   flex: 1;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
-  margin-right: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.copy-item__icon {
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  background: rgba(15, 23, 42, 0.8);
+.copy-row__icon {
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  background: rgba(15, 23, 42, 0.6);
   color: var(--accent);
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   flex: 0 0 auto;
+  margin-left: 10px;
   transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
-.copy-item__icon svg {
-  width: 18px;
-  height: 18px;
+.copy-row__icon svg {
+  width: 16px;
+  height: 16px;
 }
 
-.copy-item__icon:hover {
+.copy-row__icon:hover {
   background: rgba(56, 189, 248, 0.15);
   border-color: rgba(56, 189, 248, 0.7);
   transform: translateY(-1px);
 }
 
-.copy-item__icon:disabled {
+.copy-row__icon:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   transform: none;
 }
 
-.copy-item__actions {
+.copy-row__actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  margin-left: auto;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
 }
 
-.copy-item__actions .primary,
-.copy-item__actions .ghost,
-.copy-item__actions .danger {
-  padding: 6px 12px;
+.copy-row:hover .copy-row__actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.row-action {
+  background: transparent;
+  border: none;
+  color: #cbd5f5;
   font-size: 12px;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.row-action--danger {
+  color: var(--danger);
 }
 
 .primary,
@@ -447,7 +438,7 @@ textarea {
 .toast {
   position: fixed;
   right: 24px;
-  bottom: 24px;
+  bottom: 84px;
   background: #0f172a;
   color: #f8fafc;
   padding: 10px 16px;
@@ -466,19 +457,82 @@ textarea {
   transform: translateY(0);
 }
 
+.settings-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.8);
+  color: #e2e8f0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.5);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  z-index: 50;
+}
+
+.settings-fab svg {
+  width: 20px;
+  height: 20px;
+}
+
+.settings-fab:hover {
+  transform: translateY(-2px);
+  border-color: rgba(56, 189, 248, 0.6);
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-row input[type="checkbox"] {
+  width: 40px;
+  height: 20px;
+  appearance: none;
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.settings-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #0f172a;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.settings-row input[type="checkbox"]:checked {
+  background: rgba(56, 189, 248, 0.6);
+}
+
+.settings-row input[type="checkbox"]:checked::after {
+  transform: translateX(20px);
+  background: #e2e8f0;
+}
+
 @media (max-width: 720px) {
   .app {
     padding: 24px;
   }
 
-  .copy__header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .copy__header-actions {
     width: 100%;
-    justify-content: space-between;
+    justify-content: stretch;
   }
 
   .copy__search {
@@ -488,5 +542,10 @@ textarea {
 
   .copy__search input {
     width: 100%;
+  }
+
+  .copy-row__label {
+    flex: 0 0 90px;
+    max-width: 90px;
   }
 }

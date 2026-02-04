@@ -9,6 +9,7 @@ import {
   clipboard,
   ipcMain
 } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import net from 'node:net'
 import fs from 'node:fs'
 import { spawn } from 'node:child_process'
@@ -36,9 +37,15 @@ let isQuitting = false
 let uiaServer
 let uiaProcess
 let pendingSaveText = ''
+let settings = {
+  selectionSaveEnabled: true,
+  searchShortcut: 'CommandOrControl+Space'
+}
+let currentSearchShortcut = null
 
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 const UIA_PIPE_NAME = 'copy-app-uia'
+const SETTINGS_PATH = path.join(os.tmpdir(), 'copy-app-settings.json')
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -76,6 +83,41 @@ function logMain(message) {
     fs.appendFile(logPath, line, () => {})
   } catch {
     // ignore logging errors
+  }
+}
+
+function loadSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_PATH)) {
+      const raw = fs.readFileSync(SETTINGS_PATH, 'utf8')
+      const parsed = JSON.parse(raw)
+      settings = {
+        selectionSaveEnabled: parsed.selectionSaveEnabled !== false,
+        searchShortcut:
+          typeof parsed.searchShortcut === 'string' && parsed.searchShortcut.trim()
+            ? parsed.searchShortcut.trim()
+            : settings.searchShortcut
+      }
+      return
+    }
+  } catch {
+    // ignore read errors
+  }
+  persistSettings(settings)
+}
+
+function persistSettings(next) {
+  settings = {
+    selectionSaveEnabled: next.selectionSaveEnabled !== false,
+    searchShortcut:
+      typeof next.searchShortcut === 'string' && next.searchShortcut.trim()
+        ? next.searchShortcut.trim()
+        : settings.searchShortcut
+  }
+  try {
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings), 'utf8')
+  } catch {
+    // ignore write errors
   }
 }
 
@@ -149,6 +191,9 @@ function openSearchWindow() {
 
 function resolveUiaHelperPath() {
   const candidates = [
+    app.isPackaged
+      ? path.join(process.resourcesPath, 'uia-helper', 'UiaHelper.exe')
+      : null,
     path.join(
       __dirname,
       'tools',
@@ -181,7 +226,7 @@ function resolveUiaHelperPath() {
   ]
 
   for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
+    if (candidate && fs.existsSync(candidate)) {
       return candidate
     }
   }
@@ -237,6 +282,10 @@ function startUiaHelper() {
 
 function requestSaveFromUia(text) {
   if (!text) return
+  if (!settings.selectionSaveEnabled) {
+    logMain('selection save disabled')
+    return
+  }
   logMain(`requestSaveFromUia len=${text.length}`)
   pendingSaveText = text
   if (mainWindow?.isDestroyed()) {
@@ -309,9 +358,22 @@ function createTray() {
 }
 
 function registerShortcuts() {
-  globalShortcut.register('CommandOrControl+Space', () => {
+  if (currentSearchShortcut) {
+    globalShortcut.unregister(currentSearchShortcut)
+  }
+  const shortcut = settings.searchShortcut || 'CommandOrControl+Space'
+  const ok = globalShortcut.register(shortcut, () => {
     openSearchWindow()
   })
+  if (!ok && shortcut !== 'CommandOrControl+Space') {
+    globalShortcut.register('CommandOrControl+Space', () => {
+      openSearchWindow()
+    })
+    currentSearchShortcut = 'CommandOrControl+Space'
+    logMain(`shortcut fallback to ${currentSearchShortcut}`)
+    return
+  }
+  currentSearchShortcut = shortcut
 }
 
 function registerIpc() {
@@ -327,6 +389,12 @@ function registerIpc() {
     pendingSaveText = ''
     logMain(`save-pending consumed len=${text.length}`)
     return text
+  })
+  ipcMain.handle('settings:get', () => settings)
+  ipcMain.handle('settings:update', (_event, next) => {
+    persistSettings(next || {})
+    registerShortcuts()
+    return settings
   })
   ipcMain.handle('clipboard:copy', (_event, text) => {
     clipboard.writeText(text)
@@ -347,6 +415,7 @@ function registerIpc() {
 
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null)
+  loadSettings()
   await initDatabase(app.getPath('userData'))
   createMainWindow()
   createTray()
@@ -354,6 +423,10 @@ app.whenReady().then(async () => {
   startUiaHelper()
   registerShortcuts()
   registerIpc()
+
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify()
+  }
 
   app.setLoginItemSettings({
     openAtLogin: true,

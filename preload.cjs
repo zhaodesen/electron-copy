@@ -18,6 +18,8 @@ contextBridge.exposeInMainWorld('api', {
   copyText: (text) => ipcRenderer.invoke('clipboard:copy', text),
   closeSearch: () => ipcRenderer.invoke('search:close'),
   showMain: () => ipcRenderer.invoke('main:show'),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  updateSettings: (next) => ipcRenderer.invoke('settings:update', next),
   onSearchOpen: (callback) => {
     ipcRenderer.removeAllListeners('search:open')
     ipcRenderer.on('search:open', () => callback())

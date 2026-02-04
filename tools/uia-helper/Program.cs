@@ -2,12 +2,14 @@ using System;
 using System.IO;
 using System.IO.Pipes;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using System.Runtime.InteropServices;
 
 public static class Program
 {
@@ -19,6 +21,12 @@ public static class Program
   private static Dispatcher? _dispatcher;
   private static Timer? _pollTimer;
   private static readonly string LogPath = Path.Combine(Path.GetTempPath(), "copy-app-uia.log");
+  private static readonly string SettingsPath = Path.Combine(Path.GetTempPath(), "copy-app-settings.json");
+  private static DateTime _settingsCheckedAt = DateTime.MinValue;
+  private static bool _selectionSaveEnabled = true;
+  private const int VK_LBUTTON = 0x01;
+  [DllImport("user32.dll")]
+  private static extern short GetAsyncKeyState(int vKey);
 
   [STAThread]
   public static void Main(string[] args)
@@ -41,7 +49,7 @@ public static class Program
 
     Automation.AddAutomationFocusChangedEventHandler((_, __) => TryUpdateSelection());
 
-    _pollTimer = new Timer(_ => TryUpdateSelection(), null, 1000, 1000);
+    _pollTimer = new Timer(_ => TryUpdateSelection(), null, 250, 250);
     app.Exit += (_, __) => _pollTimer?.Dispose();
 
     app.Dispatcher.InvokeAsync(TryUpdateSelection, DispatcherPriority.Background);
@@ -50,6 +58,12 @@ public static class Program
 
   private static void HandleSaveClicked()
   {
+    if (!IsSelectionSaveEnabled())
+    {
+      _dispatcher?.BeginInvoke(() => _overlay?.Hide(), DispatcherPriority.Background);
+      return;
+    }
+
     string text;
     lock (SyncRoot)
     {
@@ -65,12 +79,23 @@ public static class Program
 
   private static void TryUpdateSelection()
   {
+    if (!IsSelectionSaveEnabled())
+    {
+      _dispatcher?.BeginInvoke(() => _overlay?.Hide(), DispatcherPriority.Background);
+      return;
+    }
+
     var info = GetSelectionInfo();
     if (_dispatcher == null) return;
 
     _dispatcher.BeginInvoke(() =>
     {
       if (_overlay == null) return;
+      if (IsLeftButtonDown())
+      {
+        _overlay.Hide();
+        return;
+      }
       if (info == null)
       {
         _overlay.Hide();
@@ -136,6 +161,47 @@ public static class Program
     }
   }
 
+  private static bool IsSelectionSaveEnabled()
+  {
+    var now = DateTime.UtcNow;
+    if ((now - _settingsCheckedAt).TotalMilliseconds < 500)
+    {
+      return _selectionSaveEnabled;
+    }
+    _settingsCheckedAt = now;
+
+    try
+    {
+      if (!File.Exists(SettingsPath))
+      {
+        _selectionSaveEnabled = true;
+        return _selectionSaveEnabled;
+      }
+
+      using var stream = File.OpenRead(SettingsPath);
+      using var doc = JsonDocument.Parse(stream);
+      if (doc.RootElement.TryGetProperty("selectionSaveEnabled", out var value))
+      {
+        _selectionSaveEnabled = value.ValueKind != JsonValueKind.False;
+      }
+      else
+      {
+        _selectionSaveEnabled = true;
+      }
+    }
+    catch
+    {
+      _selectionSaveEnabled = true;
+    }
+
+    return _selectionSaveEnabled;
+  }
+
+  private static bool IsLeftButtonDown()
+  {
+    return (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
+  }
+
   private static void Log(string message)
   {
     try
@@ -177,21 +243,24 @@ public sealed class OverlayWindow : Window
 
     var border = new Border
     {
-      Background = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
-      BorderBrush = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
+      Background = Brushes.White,
+      BorderBrush = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
       BorderThickness = new Thickness(1),
-      CornerRadius = new CornerRadius(10),
-      Padding = new Thickness(12, 6, 12, 6)
+      CornerRadius = new CornerRadius(8),
+      Padding = new Thickness(6, 2, 6, 2)
     };
 
     var button = new Button
     {
-      Content = "\u4fdd\u5b58",
+      Content = "\uD83D\uDCBE",
       Background = Brushes.Transparent,
       BorderBrush = Brushes.Transparent,
-      Foreground = Brushes.White,
+      Foreground = Brushes.Black,
       FontWeight = FontWeights.SemiBold,
-      Padding = new Thickness(4, 2, 4, 2)
+      FontSize = 12,
+      Padding = new Thickness(2, 0, 2, 0),
+      MinWidth = 20,
+      MinHeight = 18
     };
     button.Click += (_, __) => EmitSave();
 

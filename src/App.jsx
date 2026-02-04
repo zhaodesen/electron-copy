@@ -7,7 +7,6 @@ const isSearchMode =
 
 const STRINGS = {
   title: '\u5feb\u6377\u65b9\u5f0f',
-  subtitle: '\u7ba1\u7406\u4e0e\u5feb\u901f\u590d\u5236\u5185\u5bb9',
   searchPlaceholder: '\u641c\u7d22\u5feb\u6377\u65b9\u5f0f/\u5185\u5bb9',
   add: '\u6dfb\u52a0',
   empty: '\u6682\u65e0\u5185\u5bb9',
@@ -25,11 +24,15 @@ const STRINGS = {
   copiedToast: '\u590d\u5236\u6210\u529f',
   searchPlaceholderSpotlight: '\u641c\u7d22\u5df2\u4fdd\u5b58\u7684\u5185\u5bb9...',
   searchEmpty: '\u6682\u65e0\u7ed3\u679c',
-  searchHint: 'Enter \u590d\u5236'
+  searchHint: 'Enter \u590d\u5236',
+  settings: '\u8bbe\u7f6e',
+  settingsSaveToggle: '\u4fdd\u5b58\u6309\u94ae\u5f00\u5173',
+  settingsShortcut: '\u641c\u7d22\u5feb\u6377\u952e',
+  settingsHint: '\u4f8b\u5982\uff1aCommandOrControl+Space'
 }
 
-const ITEM_HEIGHT = 120
-const OVERSCAN = 6
+const ITEM_HEIGHT = 56
+const OVERSCAN = 10
 
 function CopyList() {
   const [items, setItems] = useState([])
@@ -41,6 +44,15 @@ function CopyList() {
     label: '',
     content: ''
   })
+  const [settings, setSettings] = useState({
+    selectionSaveEnabled: true,
+    searchShortcut: 'CommandOrControl+Space'
+  })
+  const [settingsDraft, setSettingsDraft] = useState({
+    selectionSaveEnabled: true,
+    searchShortcut: 'CommandOrControl+Space'
+  })
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const toastTimerRef = useRef(null)
   const listRef = useRef(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -51,6 +63,13 @@ function CopyList() {
     api.listItems().then((data) => {
       if (mounted) setItems(data)
     })
+    if (api.getSettings) {
+      api.getSettings().then((data) => {
+        if (!mounted || !data) return
+        setSettings(data)
+        setSettingsDraft(data)
+      })
+    }
     return () => {
       mounted = false
     }
@@ -146,6 +165,29 @@ function CopyList() {
     setIsModalOpen(false)
   }
 
+  const openSettings = () => {
+    setSettingsDraft(settings)
+    setIsSettingsOpen(true)
+  }
+
+  const closeSettings = () => {
+    setIsSettingsOpen(false)
+  }
+
+  const saveSettings = async (event) => {
+    event.preventDefault()
+    if (!api.updateSettings) {
+      setIsSettingsOpen(false)
+      return
+    }
+    const updated = await api.updateSettings(settingsDraft)
+    if (updated) {
+      setSettings(updated)
+      setSettingsDraft(updated)
+    }
+    setIsSettingsOpen(false)
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     const payload = {
@@ -209,10 +251,6 @@ function CopyList() {
   return (
     <div className="copy">
       <header className="copy__header">
-        <div className="copy__title">
-          <h1>{STRINGS.title}</h1>
-          <p>{STRINGS.subtitle}</p>
-        </div>
         <div className="copy__header-actions">
           <div className="copy__search">
             <input
@@ -243,44 +281,42 @@ function CopyList() {
               >
                 {visibleItems.map((item) => {
                   const label = item.label?.trim() || STRINGS.unnamed
+                  const content = item.content || ''
                   return (
-                    <div key={item.id} className="copy-item">
-                      <div className="copy-item__header">
-                        <div className="copy-item__title">
-                          <span className="copy-item__label">{label}</span>
-                        </div>
-                        <div className="copy-item__actions">
-                          <button
-                            className="ghost"
-                            onClick={() => openEdit(item)}
-                          >
-                            {STRINGS.edit}
-                          </button>
-                          <button
-                            className="danger"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            {STRINGS.delete}
-                          </button>
-                        </div>
-                      </div>
-                      <div className="copy-item__text-row">
-                        <div className="copy-item__text">
-                          {item.content || '-'}
-                        </div>
+                    <div key={item.id} className="copy-row">
+                      <span className="copy-row__label">{label}</span>
+                      <span
+                        className="copy-row__content"
+                        title={content}
+                      >
+                        {content || '-'}
+                      </span>
+                      <button
+                        className="copy-row__icon"
+                        onClick={() => handleCopy(item.id, item.content)}
+                        aria-label={STRINGS.copy}
+                        title={STRINGS.copy}
+                        disabled={!item.content}
+                      >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path
+                            d="M8 7h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm8-3H8a2 2 0 0 0-2 2v1h2V6h8v1h2V6a2 2 0 0 0-2-2z"
+                            fill="currentColor"
+                          />
+                        </svg>
+                      </button>
+                      <div className="copy-row__actions">
                         <button
-                          className="copy-item__icon"
-                          onClick={() => handleCopy(item.id, item.content)}
-                          aria-label={STRINGS.copy}
-                          title={STRINGS.copy}
-                          disabled={!item.content}
+                          className="row-action"
+                          onClick={() => openEdit(item)}
                         >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path
-                              d="M8 7h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm8-3H8a2 2 0 0 0-2 2v1h2V6h8v1h2V6a2 2 0 0 0-2-2z"
-                              fill="currentColor"
-                            />
-                          </svg>
+                          {STRINGS.edit}
+                        </button>
+                        <button
+                          className="row-action row-action--danger"
+                          onClick={() => handleDelete(item.id)}
+                        >
+                          {STRINGS.delete}
                         </button>
                       </div>
                     </div>
@@ -334,7 +370,60 @@ function CopyList() {
         </div>
       )}
 
+      {isSettingsOpen && (
+        <div className="modal-backdrop" onClick={closeSettings}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
+            <h2>{STRINGS.settings}</h2>
+            <form onSubmit={saveSettings} className="modal__form">
+              <label className="settings-row">
+                <span>{STRINGS.settingsSaveToggle}</span>
+                <input
+                  type="checkbox"
+                  checked={!!settingsDraft.selectionSaveEnabled}
+                  onChange={(event) =>
+                    setSettingsDraft((prev) => ({
+                      ...prev,
+                      selectionSaveEnabled: event.target.checked
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                {STRINGS.settingsShortcut}
+                <input
+                  value={settingsDraft.searchShortcut || ''}
+                  onChange={(event) =>
+                    setSettingsDraft((prev) => ({
+                      ...prev,
+                      searchShortcut: event.target.value
+                    }))
+                  }
+                  placeholder={STRINGS.settingsHint}
+                />
+              </label>
+              <div className="modal__actions">
+                <button type="button" className="ghost" onClick={closeSettings}>
+                  {STRINGS.cancel}
+                </button>
+                <button type="submit" className="primary">
+                  {STRINGS.save}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className={`toast ${toast ? 'is-visible' : ''}`}>{toast}</div>
+
+      <button className="settings-fab" onClick={openSettings} aria-label={STRINGS.settings}>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zm8.5 3.5a6.8 6.8 0 0 0-.08-1l2.02-1.56-2-3.46-2.46 1a7.1 7.1 0 0 0-1.74-1l-.38-2.6h-4l-.38 2.6a7.1 7.1 0 0 0-1.74 1l-2.46-1-2 3.46 2.02 1.56a6.8 6.8 0 0 0 0 2l-2.02 1.56 2 3.46 2.46-1c.54.43 1.12.78 1.74 1l.38 2.6h4l.38-2.6c.62-.22 1.2-.57 1.74-1l2.46 1 2-3.46-2.02-1.56c.05-.33.08-.66.08-1z"
+            fill="currentColor"
+          />
+        </svg>
+      </button>
     </div>
   )
 }
