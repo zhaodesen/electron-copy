@@ -9,15 +9,20 @@ import {
   clipboard,
   ipcMain
 } from 'electron'
+import net from 'node:net'
+import fs from 'node:fs'
+import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   initDatabase,
   listItems,
+  listFrequentItems,
   createItem,
   updateItem,
   deleteItem,
-  searchItems
+  searchItems,
+  incrementUsage
 } from './db.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -27,8 +32,14 @@ let mainWindow
 let searchWindow
 let tray
 let isQuitting = false
+let uiaServer
+let uiaProcess
+let lastUiaSelection = ''
+let lastUiaSelectionAt = 0
 
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
+const UIA_PIPE_NAME = 'copy-app-uia'
+const UIA_RECENT_MS = 5000
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -37,9 +48,11 @@ function createMainWindow() {
     minWidth: 640,
     minHeight: 480,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.cjs')
     }
   })
+  mainWindow.setMenuBarVisibility(false)
+  mainWindow.setMenu(null)
 
   if (devServerUrl) {
     mainWindow.loadURL(devServerUrl)
@@ -65,34 +78,37 @@ function getSearchUrl() {
   return `${pathToFileURL(indexPath).toString()}?mode=search`
 }
 
-function centerOnDisplay(win, width, height) {
+function fitSearchWindowToDisplay() {
+  if (!searchWindow || searchWindow.isDestroyed()) return
   const point = screen.getCursorScreenPoint()
   const display = screen.getDisplayNearestPoint(point)
-  const { x, y, width: w, height: h } = display.workArea
-  const posX = Math.round(x + (w - width) / 2)
-  const posY = Math.round(y + (h - height) / 2)
-  win.setBounds({ x: posX, y: posY, width, height })
+  const { x, y, width, height } = display.bounds
+  searchWindow.setBounds({ x, y, width, height })
 }
 
 function createSearchWindow() {
+  const { width, height } = screen.getPrimaryDisplay().bounds
   searchWindow = new BrowserWindow({
-    width: 680,
-    height: 120,
+    width,
+    height,
     frame: false,
     resizable: false,
     movable: true,
     show: false,
     alwaysOnTop: true,
     skipTaskbar: true,
-    transparent: false,
-    backgroundColor: '#111827',
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.cjs')
     }
   })
+  searchWindow.setMenuBarVisibility(false)
+  searchWindow.setMenu(null)
 
   searchWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  centerOnDisplay(searchWindow, 680, 120)
+  fitSearchWindowToDisplay()
   searchWindow.loadURL(getSearchUrl())
 
   searchWindow.on('blur', () => {
@@ -110,7 +126,7 @@ function ensureSearchWindow() {
 
 function openSearchWindow() {
   ensureSearchWindow()
-  centerOnDisplay(searchWindow, 680, 120)
+  fitSearchWindowToDisplay()
   searchWindow.show()
   searchWindow.focus()
   if (searchWindow.webContents.isLoading()) {
@@ -120,6 +136,78 @@ function openSearchWindow() {
   } else {
     searchWindow.webContents.send('search:open')
   }
+}
+
+function resolveUiaHelperPath() {
+  const candidates = [
+    path.join(
+      __dirname,
+      'tools',
+      'uia-helper',
+      'bin',
+      'Release',
+      'net8.0-windows',
+      'win-x64',
+      'publish',
+      'UiaHelper.exe'
+    ),
+    path.join(
+      __dirname,
+      'tools',
+      'uia-helper',
+      'bin',
+      'Release',
+      'net8.0-windows',
+      'UiaHelper.exe'
+    ),
+    path.join(
+      __dirname,
+      'tools',
+      'uia-helper',
+      'bin',
+      'Debug',
+      'net8.0-windows',
+      'UiaHelper.exe'
+    )
+  ]
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate
+    }
+  }
+  return null
+}
+
+function startUiaHelper() {
+  if (process.platform !== 'win32') return
+
+  const pipePath = `\\\\.\\pipe\\${UIA_PIPE_NAME}`
+  uiaServer = net.createServer((stream) => {
+    stream.on('data', (buffer) => {
+      const text = buffer.toString('utf8').trim()
+      if (!text) return
+      lastUiaSelection = text
+      lastUiaSelectionAt = Date.now()
+    })
+  })
+
+  uiaServer.on('error', () => {})
+  uiaServer.listen(pipePath)
+
+  const helperPath = resolveUiaHelperPath()
+  if (!helperPath) return
+
+  uiaProcess = spawn(helperPath, [UIA_PIPE_NAME], {
+    stdio: 'ignore',
+    windowsHide: true
+  })
+}
+
+function getRecentSelectionText() {
+  if (!lastUiaSelection) return ''
+  if (Date.now() - lastUiaSelectionAt > UIA_RECENT_MS) return ''
+  return lastUiaSelection
 }
 
 function createTray() {
@@ -167,14 +255,23 @@ function registerShortcuts() {
   globalShortcut.register('CommandOrControl+Space', () => {
     openSearchWindow()
   })
+  globalShortcut.register('Shift+Space', async () => {
+    const selectionText = getRecentSelectionText()
+    const text = selectionText || clipboard.readText().trim()
+    if (!text) return
+    const label = text.split(/\r?\n/)[0].slice(0, 20)
+    await createItem({ label, content: text })
+  })
 }
 
 function registerIpc() {
   ipcMain.handle('items:list', () => listItems())
-  ipcMain.handle('items:create', (_event, text) => createItem(text))
-  ipcMain.handle('items:update', (_event, id, text) => updateItem(id, text))
+  ipcMain.handle('items:frequent', (_event, limit) => listFrequentItems(limit))
+  ipcMain.handle('items:create', (_event, payload) => createItem(payload))
+  ipcMain.handle('items:update', (_event, id, payload) => updateItem(id, payload))
   ipcMain.handle('items:delete', (_event, id) => deleteItem(id))
   ipcMain.handle('items:search', (_event, query) => searchItems(query))
+  ipcMain.handle('items:usage', (_event, id) => incrementUsage(id))
   ipcMain.handle('clipboard:copy', (_event, text) => {
     clipboard.writeText(text)
     return true
@@ -193,10 +290,12 @@ function registerIpc() {
 }
 
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(null)
   await initDatabase(app.getPath('userData'))
   createMainWindow()
   createTray()
   createSearchWindow()
+  startUiaHelper()
   registerShortcuts()
   registerIpc()
 
@@ -220,6 +319,14 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   isQuitting = true
+  if (uiaProcess) {
+    uiaProcess.kill()
+    uiaProcess = null
+  }
+  if (uiaServer) {
+    uiaServer.close()
+    uiaServer = null
+  }
 })
 
 app.on('will-quit', () => {

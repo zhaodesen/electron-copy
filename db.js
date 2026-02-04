@@ -45,18 +45,40 @@ function normalizeState(data) {
   for (const raw of items) {
     const id = Number(raw?.id)
     if (!Number.isFinite(id) || id <= 0) continue
-    const text = typeof raw?.text === 'string' ? raw.text : ''
+
+    const label = typeof raw?.label === 'string' ? raw.label : ''
+    let content = ''
+    if (typeof raw?.content === 'string') {
+      content = raw.content
+    } else if (typeof raw?.text === 'string') {
+      content = raw.text
+    } else {
+      const account = typeof raw?.account === 'string' ? raw.account : ''
+      const password = typeof raw?.password === 'string' ? raw.password : ''
+      const parts = []
+      if (account) parts.push(`\u8d26\u53f7: ${account}`)
+      if (password) parts.push(`\u5bc6\u7801: ${password}`)
+      content = parts.join(' | ')
+    }
+
     const createdAt = Number(raw?.created_at)
     const updatedAt = Number(raw?.updated_at)
     const created = Number.isFinite(createdAt) ? createdAt : now
     const updated = Number.isFinite(updatedAt) ? updatedAt : created
 
+    const usageRaw = raw?.usage_count ?? raw?.usageCount
+    const usage = Number(usageRaw)
+    const usageCount = Number.isFinite(usage) && usage >= 0 ? usage : 0
+
     normalizedItems.push({
       id,
-      text,
+      label,
+      content,
       created_at: created,
-      updated_at: updated
+      updated_at: updated,
+      usage_count: usageCount
     })
+
     if (id > maxId) maxId = id
   }
 
@@ -90,26 +112,41 @@ export async function listItems() {
   return sortByUpdatedDesc([...state.items]).map(cloneItem)
 }
 
-export async function createItem(text) {
+export async function listFrequentItems(limit = 5) {
+  ensureInitialized()
+  const items = [...state.items].sort((a, b) => {
+    if (b.usage_count !== a.usage_count) {
+      return b.usage_count - a.usage_count
+    }
+    return b.updated_at - a.updated_at
+  })
+  return items.slice(0, Math.max(0, Number(limit) || 0)).map(cloneItem)
+}
+
+export async function createItem(payload = {}) {
   ensureInitialized()
   const now = Date.now()
   const item = {
     id: ++state.lastId,
-    text: typeof text === 'string' ? text : '',
+    label: typeof payload?.label === 'string' ? payload.label : '',
+    content: typeof payload?.content === 'string' ? payload.content : '',
     created_at: now,
-    updated_at: now
+    updated_at: now,
+    usage_count: 0
   }
   state.items.push(item)
   await persist()
   return cloneItem(item)
 }
 
-export async function updateItem(id, text) {
+export async function updateItem(id, payload = {}) {
   ensureInitialized()
   const numericId = Number(id)
   const item = state.items.find((entry) => entry.id === numericId)
   if (!item) return null
-  item.text = typeof text === 'string' ? text : ''
+
+  item.label = typeof payload?.label === 'string' ? payload.label : ''
+  item.content = typeof payload?.content === 'string' ? payload.content : ''
   item.updated_at = Date.now()
   await persist()
   return cloneItem(item)
@@ -128,8 +165,25 @@ export async function deleteItem(id) {
 export async function searchItems(query) {
   ensureInitialized()
   const q = typeof query === 'string' ? query.trim().toLowerCase() : ''
-  const results = q
-    ? state.items.filter((item) => item.text.toLowerCase().includes(q))
-    : state.items
+  if (!q) return listItems()
+
+  const results = state.items.filter((item) => {
+    const haystack = [item.label, item.content]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return haystack.includes(q)
+  })
+
   return sortByUpdatedDesc([...results]).map(cloneItem)
+}
+
+export async function incrementUsage(id) {
+  ensureInitialized()
+  const numericId = Number(id)
+  const item = state.items.find((entry) => entry.id === numericId)
+  if (!item) return null
+  item.usage_count = Math.max(0, Number(item.usage_count) || 0) + 1
+  await persist()
+  return cloneItem(item)
 }
