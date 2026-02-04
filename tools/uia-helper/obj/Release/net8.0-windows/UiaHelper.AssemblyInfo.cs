@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("UiaHelper")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d3c53d37689e135c0f2c1b71046d788d0796be47")]
 [assembly: System.Reflection.AssemblyProductAttribute("UiaHelper")]
 [assembly: System.Reflection.AssemblyTitleAttribute("UiaHelper")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

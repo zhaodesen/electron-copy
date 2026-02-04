@@ -13,6 +13,7 @@ import net from 'node:net'
 import fs from 'node:fs'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
+import os from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   initDatabase,
@@ -34,12 +35,10 @@ let tray
 let isQuitting = false
 let uiaServer
 let uiaProcess
-let lastUiaSelection = ''
-let lastUiaSelectionAt = 0
+let pendingSaveText = ''
 
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 const UIA_PIPE_NAME = 'copy-app-uia'
-const UIA_RECENT_MS = 5000
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -68,6 +67,16 @@ function createMainWindow() {
       mainWindow.hide()
     }
   })
+}
+
+function logMain(message) {
+  try {
+    const logPath = path.join(os.tmpdir(), 'copy-app-uia-main.log')
+    const line = `${new Date().toISOString()} ${message}\n`
+    fs.appendFile(logPath, line, () => {})
+  } catch {
+    // ignore logging errors
+  }
 }
 
 function getSearchUrl() {
@@ -184,12 +193,34 @@ function startUiaHelper() {
 
   const pipePath = `\\\\.\\pipe\\${UIA_PIPE_NAME}`
   uiaServer = net.createServer((stream) => {
-    stream.on('data', (buffer) => {
-      const text = buffer.toString('utf8').trim()
+    let data = ''
+    let flushTimer
+    const flush = () => {
+      const text = data.trim()
+      data = ''
       if (!text) return
-      lastUiaSelection = text
-      lastUiaSelectionAt = Date.now()
+      logMain(`pipe flush len=${text.length}`)
+      requestSaveFromUia(text)
+    }
+    const scheduleFlush = () => {
+      if (flushTimer) clearTimeout(flushTimer)
+      flushTimer = setTimeout(() => {
+        flushTimer = null
+        flush()
+      }, 60)
+    }
+    stream.on('data', (buffer) => {
+      data += buffer.toString('utf8')
+      scheduleFlush()
     })
+    stream.on('end', () => {
+      if (flushTimer) {
+        clearTimeout(flushTimer)
+        flushTimer = null
+      }
+      flush()
+    })
+    stream.on('error', () => {})
   })
 
   uiaServer.on('error', () => {})
@@ -204,10 +235,36 @@ function startUiaHelper() {
   })
 }
 
-function getRecentSelectionText() {
-  if (!lastUiaSelection) return ''
-  if (Date.now() - lastUiaSelectionAt > UIA_RECENT_MS) return ''
-  return lastUiaSelection
+function requestSaveFromUia(text) {
+  if (!text) return
+  logMain(`requestSaveFromUia len=${text.length}`)
+  pendingSaveText = text
+  if (mainWindow?.isDestroyed()) {
+    createMainWindow()
+  }
+  if (!mainWindow) return
+  if (searchWindow?.isVisible()) {
+    searchWindow.hide()
+  }
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore()
+  }
+  mainWindow.show()
+  mainWindow.focus()
+  mainWindow.setAlwaysOnTop(true)
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setAlwaysOnTop(false)
+    }
+  }, 120)
+  const send = () => {
+    mainWindow.webContents.send('items:save-request', text)
+  }
+  if (mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.once('did-finish-load', send)
+  } else {
+    setTimeout(send, 0)
+  }
 }
 
 function createTray() {
@@ -255,13 +312,6 @@ function registerShortcuts() {
   globalShortcut.register('CommandOrControl+Space', () => {
     openSearchWindow()
   })
-  globalShortcut.register('Shift+Space', async () => {
-    const selectionText = getRecentSelectionText()
-    const text = selectionText || clipboard.readText().trim()
-    if (!text) return
-    const label = text.split(/\r?\n/)[0].slice(0, 20)
-    await createItem({ label, content: text })
-  })
 }
 
 function registerIpc() {
@@ -272,6 +322,12 @@ function registerIpc() {
   ipcMain.handle('items:delete', (_event, id) => deleteItem(id))
   ipcMain.handle('items:search', (_event, query) => searchItems(query))
   ipcMain.handle('items:usage', (_event, id) => incrementUsage(id))
+  ipcMain.handle('items:save-pending', () => {
+    const text = pendingSaveText
+    pendingSaveText = ''
+    logMain(`save-pending consumed len=${text.length}`)
+    return text
+  })
   ipcMain.handle('clipboard:copy', (_event, text) => {
     clipboard.writeText(text)
     return true

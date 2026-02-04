@@ -75,6 +75,37 @@ function CopyList() {
   }, [])
 
   useEffect(() => {
+    if (!api?.onSaveRequest) return
+    api.onSaveRequest((text) => {
+      openCreate(text || '')
+      api.consumeSaveRequest?.()
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!api?.consumeSaveRequest) return
+    const checkPending = async () => {
+      const pending = await api.consumeSaveRequest()
+      if (pending) {
+        openCreate(pending)
+      }
+    }
+    checkPending()
+    const handleFocus = () => {
+      checkPending()
+    }
+    window.addEventListener('focus', handleFocus)
+    const poll = setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      checkPending()
+    }, 500)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      clearInterval(poll)
+    }
+  }, [])
+
+  useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = 0
     }
@@ -91,11 +122,13 @@ function CopyList() {
     }, 1400)
   }
 
-  const openCreate = () => {
+  const openCreate = (prefillContent = '') => {
+    const content = prefillContent.trim()
+    const label = content ? content.split(/\r?\n/)[0].slice(0, 20) : ''
     setEditingItem(null)
     setForm({
-      label: '',
-      content: ''
+      label,
+      content
     })
     setIsModalOpen(true)
   }
