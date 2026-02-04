@@ -1,0 +1,14 @@
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\UiaHelper.GeneratedMSBuildEditorConfig.editorconfig
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\UiaHelper.AssemblyInfoInputs.cache
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\UiaHelper.AssemblyInfo.cs
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\UiaHelper.csproj.CoreCompileInputs.cache
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\bin\Release\net8.0-windows\UiaHelper.exe
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\bin\Release\net8.0-windows\UiaHelper.deps.json
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\bin\Release\net8.0-windows\UiaHelper.runtimeconfig.json
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\bin\Release\net8.0-windows\UiaHelper.dll
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\bin\Release\net8.0-windows\UiaHelper.pdb
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\UiaHelper.dll
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\refint\UiaHelper.dll
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\UiaHelper.pdb
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\UiaHelper.genruntimeconfig.cache
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\ref\UiaHelper.dll
