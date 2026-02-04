@@ -246,22 +246,30 @@ public sealed class OverlayWindow : Window
       Background = Brushes.White,
       BorderBrush = new SolidColorBrush(Color.FromRgb(15, 23, 42)),
       BorderThickness = new Thickness(1),
-      CornerRadius = new CornerRadius(8),
-      Padding = new Thickness(6, 2, 6, 2)
+      CornerRadius = new CornerRadius(6),
+      Padding = new Thickness(0),
+      Width = 60,
+      Height = 30
     };
 
     var button = new Button
     {
-      Content = "\uD83D\uDCBE",
+      Content = "\uE8C8",
+      FontFamily = new FontFamily("Segoe MDL2 Assets"),
       Background = Brushes.Transparent,
       BorderBrush = Brushes.Transparent,
       Foreground = Brushes.Black,
       FontWeight = FontWeights.SemiBold,
       FontSize = 12,
-      Padding = new Thickness(2, 0, 2, 0),
-      MinWidth = 20,
-      MinHeight = 18
+      Padding = new Thickness(0),
+      Width = 24,
+      Height = 24,
+      MinWidth = 0,
+      MinHeight = 0,
+      HorizontalAlignment = HorizontalAlignment.Center,
+      VerticalAlignment = VerticalAlignment.Center
     };
+    button.Style = CreateNoHoverButtonStyle();
     button.Click += (_, __) => EmitSave();
 
     border.Child = button;
@@ -274,6 +282,31 @@ public sealed class OverlayWindow : Window
     if ((now - _lastClick).TotalMilliseconds < 300) return;
     _lastClick = now;
     SaveClicked?.Invoke();
+  }
+
+  private static Style CreateNoHoverButtonStyle()
+  {
+    var style = new Style(typeof(Button));
+    style.Setters.Add(new Setter(Button.BackgroundProperty, Brushes.Transparent));
+    style.Setters.Add(new Setter(Button.BorderBrushProperty, Brushes.Transparent));
+    style.Setters.Add(new Setter(Button.BorderThicknessProperty, new Thickness(0)));
+    style.Setters.Add(new Setter(Button.PaddingProperty, new Thickness(0)));
+    style.Setters.Add(new Setter(Button.FocusVisualStyleProperty, null));
+
+    var template = new ControlTemplate(typeof(Button));
+    var borderFactory = new FrameworkElementFactory(typeof(Border));
+    borderFactory.SetValue(Border.BackgroundProperty, Brushes.Transparent);
+    borderFactory.SetValue(Border.BorderBrushProperty, Brushes.Transparent);
+    borderFactory.SetValue(Border.BorderThicknessProperty, new Thickness(0));
+
+    var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+    presenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+    presenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+
+    borderFactory.AppendChild(presenter);
+    template.VisualTree = borderFactory;
+    style.Setters.Add(new Setter(Button.TemplateProperty, template));
+    return style;
   }
 
   public void ShowAt(Rect deviceRect)

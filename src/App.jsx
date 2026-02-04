@@ -13,10 +13,10 @@ const STRINGS = {
   unnamed: '\u672a\u547d\u540d',
   edit: '\u7f16\u8f91',
   delete: '\u5220\u9664',
-  shortcutLabel: '\u5feb\u6377\u65b9\u5f0f',
+  shortcutLabel: '\u7b80\u79f0',
   content: '\u5185\u5bb9',
   copy: '\u590d\u5236',
-  labelPlaceholder: '\u4f8b\u5982\uff1a\u90ae\u7bb1',
+  labelPlaceholder: '\u8bf7\u8f93\u5165\u7b80\u79f0',
   contentPlaceholder: '\u8f93\u5165\u8981\u4fdd\u5b58\u7684\u6587\u672c',
   cancel: '\u53d6\u6d88',
   save: '\u4fdd\u5b58',
@@ -142,7 +142,13 @@ function CopyList() {
   }
 
   const openCreate = (prefillContent = '') => {
-    const content = prefillContent.trim()
+    const resolved =
+      prefillContent && typeof prefillContent === 'object'
+        ? prefillContent.content ?? prefillContent.text ?? ''
+        : prefillContent
+    const content = typeof resolved === 'string'
+      ? resolved.trim()
+      : String(resolved ?? '').trim()
     const label = content ? content.split(/\r?\n/)[0].slice(0, 20) : ''
     setEditingItem(null)
     setForm({
@@ -233,12 +239,12 @@ function CopyList() {
   const normalizedQuery = query.trim().toLowerCase()
   const filteredItems = normalizedQuery
     ? items.filter((item) => {
-        const haystack = [item.label, item.content]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-        return haystack.includes(normalizedQuery)
-      })
+      const haystack = [item.label, item.content]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(normalizedQuery)
+    })
     : items
 
   const totalHeight = filteredItems.length * ITEM_HEIGHT
@@ -284,27 +290,26 @@ function CopyList() {
                   const content = item.content || ''
                   return (
                     <div key={item.id} className="copy-row">
-                      <span className="copy-row__label">{label}</span>
-                      <span
-                        className="copy-row__content"
-                        title={content}
-                      >
-                        {content || '-'}
-                      </span>
-                      <button
-                        className="copy-row__icon"
-                        onClick={() => handleCopy(item.id, item.content)}
-                        aria-label={STRINGS.copy}
-                        title={STRINGS.copy}
-                        disabled={!item.content}
-                      >
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path
-                            d="M8 7h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm8-3H8a2 2 0 0 0-2 2v1h2V6h8v1h2V6a2 2 0 0 0-2-2z"
-                            fill="currentColor"
-                          />
-                        </svg>
-                      </button>
+                      <div className="copy-row__main">
+                       
+                        <span
+                          className="copy-row__content"
+                          title={content}
+                        >
+                          {content || '-'}
+                        </span>
+                        
+                        <button
+                          className="copy-row__icon"
+                          onClick={() => handleCopy(item.id, item.content)}
+                          aria-label={STRINGS.copy}
+                          title={STRINGS.copy}
+                          disabled={!item.content}
+                        >
+                          <svg focusable="false" data-icon="copy" width="1em" height="1em" fill="currentColor" aria-hidden="true" viewBox="64 64 896 896"><path d="M832 64H296c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h496v688c0 4.4 3.6 8 8 8h56c4.4 0 8-3.6 8-8V96c0-17.7-14.3-32-32-32zM704 192H192c-17.7 0-32 14.3-32 32v530.7c0 8.5 3.4 16.6 9.4 22.6l173.3 173.3c2.2 2.2 4.7 4 7.4 5.5v1.9h4.2c3.5 1.3 7.2 2 11 2H704c17.7 0 32-14.3 32-32V224c0-17.7-14.3-32-32-32zM350 856.2L263.9 770H350v86.2zM664 888H414V746c0-22.1-17.9-40-40-40H232V264h432v624z"></path></svg>
+                        </button>
+                      </div>
+                       {/* <span className="copy-row__label">{label}</span> */}
                       <div className="copy-row__actions">
                         <button
                           className="row-action"
@@ -538,9 +543,8 @@ function SearchOverlay() {
           {results.map((item, index) => (
             <button
               key={item.id}
-              className={`spotlight__item ${
-                index === activeIndex ? 'is-active' : ''
-              }`}
+              className={`spotlight__item ${index === activeIndex ? 'is-active' : ''
+                }`}
               onMouseEnter={() => setActiveIndex(index)}
               onClick={() => copyFromResult(item)}
             >

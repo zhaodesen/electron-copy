@@ -9,7 +9,8 @@ import {
   clipboard,
   ipcMain
 } from 'electron'
-import { autoUpdater } from 'electron-updater'
+import updater from 'electron-updater'
+const { autoUpdater } = updater
 import net from 'node:net'
 import fs from 'node:fs'
 import { spawn } from 'node:child_process'
@@ -72,7 +73,20 @@ function createMainWindow() {
     if (!isQuitting) {
       event.preventDefault()
       mainWindow.hide()
+      mainWindow.setSkipTaskbar(true)
     }
+  })
+
+  mainWindow.on('minimize', (event) => {
+    if (!isQuitting) {
+      event.preventDefault()
+      mainWindow.hide()
+      mainWindow.setSkipTaskbar(true)
+    }
+  })
+
+  mainWindow.on('show', () => {
+    mainWindow.setSkipTaskbar(false)
   })
 }
 

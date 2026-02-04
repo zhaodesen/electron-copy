@@ -12,3 +12,4 @@ E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\
 E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\UiaHelper.pdb
 E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\UiaHelper.genruntimeconfig.cache
 E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\ref\UiaHelper.dll
+E:\zhaodesen\code\electron\copy-app\tools\uia-helper\obj\Release\net8.0-windows\UiaHelper.sourcelink.json
