@@ -67,7 +67,7 @@ function createMainWindow() {
     mainWindow.loadURL(devServerUrl)
     mainWindow.webContents.openDevTools()
   } else {
-    const indexPath = path.join(__dirname, 'dist', 'index.html')
+    const indexPath = path.join(__dirname, 'dist', 'renderer', 'index.html')
     mainWindow.loadURL(pathToFileURL(indexPath).toString())
   }
 
@@ -155,7 +155,7 @@ function getSearchUrl() {
   if (devServerUrl) {
     return `${devServerUrl}?mode=search`
   }
-  const indexPath = path.join(__dirname, 'dist', 'index.html')
+  const indexPath = path.join(__dirname, 'dist', 'renderer', 'index.html')
   return `${pathToFileURL(indexPath).toString()}?mode=search`
 }
 

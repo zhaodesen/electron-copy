@@ -9,3 +9,4 @@ tools/uia-helper/.idea
 *.tmp
 .DS_Store
 Thumbs.db
+release

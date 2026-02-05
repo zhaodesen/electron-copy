@@ -41,10 +41,11 @@
     "appId": "com.zhaodesen.copyapp",
     "productName": "Copy App",
     "directories": {
-      "buildResources": "."
+      "buildResources": ".",
+      "output": "release"
     },
     "files": [
-      "dist/**/*",
+      "dist/renderer/**/*",
       "main.js",
       "preload.cjs",
       "db.js",
