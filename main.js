@@ -47,6 +47,8 @@ let currentSearchShortcut = null
 const devServerUrl = process.env.VITE_DEV_SERVER_URL
 const UIA_PIPE_NAME = 'copy-app-uia'
 const SETTINGS_PATH = path.join(os.tmpdir(), 'copy-app-settings.json')
+const UPDATE_FEED_URL =
+  'https://github.com/zhaodesen/electron-copy/releases/latest/download'
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -98,6 +100,20 @@ function logMain(message) {
   } catch {
     // ignore logging errors
   }
+}
+
+function configureAutoUpdater() {
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: UPDATE_FEED_URL
+  })
+  autoUpdater.on('error', (error) => {
+    const message =
+      error && typeof error === 'object' && 'message' in error
+        ? error.message
+        : String(error)
+    logMain(`autoUpdater error: ${message}`)
+  })
 }
 
 function loadSettings() {
@@ -439,7 +455,14 @@ app.whenReady().then(async () => {
   registerIpc()
 
   if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify()
+    configureAutoUpdater()
+    autoUpdater.checkForUpdatesAndNotify().catch((error) => {
+      const message =
+        error && typeof error === 'object' && 'message' in error
+          ? error.message
+          : String(error)
+      logMain(`update check failed: ${message}`)
+    })
   }
 
   app.setLoginItemSettings({
